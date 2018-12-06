@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/reef-pi/reef-pi/controller"
+	"github.com/reef-pi/reef-pi/manager"
 	"os"
 	"strings"
 )
@@ -64,12 +65,22 @@ func main() {
 		cmd.Parse(args)
 		config := loadConfig(*configFile)
 		resetPassword(config.Database, *user, *password)
-	case "", "daemon":
+	case "mgr":
+		cmd := flag.NewFlagSet("mgr", flag.ExitOnError)
+		configFile := cmd.String("config", "", "reef-pi manager configuration file path")
+		cmd.Parse(args)
+		config := loadConfig(*configFile)
+		daemon(config.Database, func(version, db string) (Worker, error) {
+			return manager.New(version, db)
+		})
+	case "", "daemon", "controller":
 		cmd := flag.NewFlagSet("daemon", flag.ExitOnError)
 		configFile := cmd.String("config", "", "reef-pi configuration file path")
 		cmd.Parse(args)
 		config := loadConfig(*configFile)
-		daemonize(config.Database)
+		daemon(config.Database, func(version, db string) (Worker, error) {
+			return controller.New(version, db)
+		})
 	default:
 		fmt.Println("Unknown command: '", v, "'")
 		os.Exit(1)

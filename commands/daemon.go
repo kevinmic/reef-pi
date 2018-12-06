@@ -1,5 +1,3 @@
-// +build !windows
-
 package main
 
 import (
@@ -7,19 +5,24 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/reef-pi/reef-pi/controller"
 )
 
-func daemonize(db string) {
-	c, err := controller.New(Version, db)
+type Worker interface {
+	Start() error
+	API() error
+	Stop() error
+}
+type WorkerFactory func(version, db string) (Worker, error)
+
+func daemon(db string, wf WorkerFactory) {
+	w, err := wf(Version, db)
 	if err != nil {
 		log.Fatal("ERROR: Failed to initialize controller. Error:", err)
 	}
-	if err := c.Start(); err != nil {
+	if err := w.Start(); err != nil {
 		log.Println("ERROR: Failed to start controller. Error:", err)
 	}
-	if err := c.API(); err != nil {
+	if err := w.API(); err != nil {
 		log.Println("ERROR: Failed to start API server. Error:", err)
 	}
 
@@ -30,10 +33,10 @@ func daemonize(db string) {
 		case s := <-ch:
 			switch s {
 			case syscall.SIGTERM:
-				c.Stop()
+				w.Stop()
 				return
 			case os.Interrupt:
-				c.Stop()
+				w.Stop()
 				return
 			case syscall.SIGUSR2:
 			}
