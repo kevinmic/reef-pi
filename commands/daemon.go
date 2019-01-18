@@ -14,7 +14,7 @@ type Worker interface {
 }
 type WorkerFactory func(version, db string) (Worker, error)
 
-func daemon(db string, wf WorkerFactory) {
+func daemonize(db string, wf WorkerFactory) {
 	w, err := wf(Version, db)
 	if err != nil {
 		log.Fatal("ERROR: Failed to initialize controller. Error:", err)

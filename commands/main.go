@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/reef-pi/reef-pi/controller"
+	"github.com/reef-pi/reef-pi/controller/daemon"
 	"github.com/reef-pi/reef-pi/manager"
 	"os"
 	"strings"
@@ -70,7 +70,7 @@ func main() {
 		configFile := cmd.String("config", "", "reef-pi manager configuration file path")
 		cmd.Parse(args)
 		config := loadConfig(*configFile)
-		daemon(config.Database, func(version, db string) (Worker, error) {
+		daemonize(config.Database, func(version, db string) (Worker, error) {
 			return manager.New(version, db)
 		})
 	case "", "daemon", "controller":
@@ -78,8 +78,8 @@ func main() {
 		configFile := cmd.String("config", "", "reef-pi configuration file path")
 		cmd.Parse(args)
 		config := loadConfig(*configFile)
-		daemon(config.Database, func(version, db string) (Worker, error) {
-			return controller.New(version, db)
+		daemonize(config.Database, func(version, db string) (Worker, error) {
+			return daemon.New(version, db)
 		})
 	default:
 		fmt.Println("Unknown command: '", v, "'")
@@ -87,10 +87,10 @@ func main() {
 	}
 }
 
-func loadConfig(file string) controller.Config {
-	config := controller.DefaultConfig
+func loadConfig(file string) daemon.Config {
+	config := daemon.DefaultConfig
 	if file != "" {
-		conf, err := controller.ParseConfig(file)
+		conf, err := daemon.ParseConfig(file)
 		if err != nil {
 			fmt.Println("Failed to parse config file", err)
 			os.Exit(1)

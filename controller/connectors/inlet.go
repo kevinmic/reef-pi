@@ -2,16 +2,20 @@ package connectors
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/reef-pi/reef-pi/controller/types"
-	"github.com/reef-pi/reef-pi/controller/utils"
-	"log"
-	"math/rand"
 	"net/http"
+
+	"github.com/gorilla/mux"
+
+	"github.com/reef-pi/hal"
+
+	"github.com/reef-pi/reef-pi/controller/drivers"
+	"github.com/reef-pi/reef-pi/controller/storage"
+	"github.com/reef-pi/reef-pi/controller/utils"
 )
 
-const InletBucket = types.InletBucket
+const InletBucket = storage.InletBucket
 
 type Inlet struct {
 	ID        string `json:"id"`
@@ -19,10 +23,12 @@ type Inlet struct {
 	Pin       int    `json:"pin"`
 	Equipment string `json:"equipment"`
 	Reverse   bool   `json:"reverse"`
+	Driver    string `json:"driver"`
 }
+
 type Inlets struct {
-	store   types.Store
-	DevMode bool
+	store   storage.Store
+	drivers *drivers.Drivers
 }
 
 func (e *Inlets) LoadAPI(r *mux.Router) {
@@ -34,19 +40,33 @@ func (e *Inlets) LoadAPI(r *mux.Router) {
 	r.HandleFunc("/api/inlets/{id}/read", e.read).Methods("POST")
 }
 
-func (i Inlet) IsValid() error {
-	if i.Name == "" {
-		return fmt.Errorf("Inlet name can not be empty")
+func (i Inlet) inputPin(drivers *drivers.Drivers) (hal.InputPin, error) {
+	d, err := drivers.InputDriver(i.Driver)
+	if err != nil {
+		return nil, fmt.Errorf("inlet %s driver lookup failure: %v", i.Name, err)
 	}
-	_, ok := ValidGPIOPins[i.Pin]
-	if !ok {
-		return fmt.Errorf("GPIO Pin %d is not valid", i.Pin)
+	inputPin, err := d.InputPin(i.Pin)
+	if err != nil {
+		return nil, fmt.Errorf("no valid input pin %d: %v", i.Pin, err)
+	}
+	return inputPin, nil
+}
+
+func (i Inlet) IsValid(drivers *drivers.Drivers) error {
+	if i.Name == "" {
+		return errors.New("Inlet name can not be empty")
+	}
+	if _, err := i.inputPin(drivers); err != nil {
+		return fmt.Errorf("inlet %s did not get associated with a driver pin: %v", i.Name, err)
 	}
 	return nil
 }
 
-func NewInlets(store types.Store) *Inlets {
-	return &Inlets{store: store}
+func NewInlets(drivers *drivers.Drivers, store storage.Store) *Inlets {
+	return &Inlets{
+		store:   store,
+		drivers: drivers,
+	}
 }
 
 func (c *Inlets) Setup() error {
@@ -58,23 +78,24 @@ func (c *Inlets) Read(id string) (int, error) {
 	if err != nil {
 		return -1, fmt.Errorf("Inlet name: '%s' does not exist", err)
 	}
-	if c.DevMode {
-		log.Println("Dev mode on. Skipping:", i.Name)
-		return rand.Int() % 2, nil
+
+	inputPin, err := i.inputPin(c.drivers)
+	if err != nil {
+		return 0, fmt.Errorf("can't perform read: %v", err)
 	}
-	v, err := utils.ReadGPIO(i.Pin)
-	if !i.Reverse {
-		return v, err
+	v, err := inputPin.Read()
+
+	if i.Reverse {
+		v = !v
 	}
-	if v == 1 {
-		return 0, err
-	} else {
+	if v {
 		return 1, err
 	}
+	return 0, err
 }
 
 func (c *Inlets) Create(i Inlet) error {
-	if err := i.IsValid(); err != nil {
+	if err := i.IsValid(c.drivers); err != nil {
 		return err
 	}
 	fn := func(id string) interface{} {
@@ -86,7 +107,7 @@ func (c *Inlets) Create(i Inlet) error {
 
 func (c *Inlets) Update(id string, i Inlet) error {
 	i.ID = id
-	if err := i.IsValid(); err != nil {
+	if err := i.IsValid(c.drivers); err != nil {
 		return err
 	}
 	return c.store.Update(InletBucket, id, i)

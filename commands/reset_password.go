@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/reef-pi/reef-pi/controller"
-	"github.com/reef-pi/reef-pi/controller/utils"
 	"os"
+
+	"github.com/reef-pi/reef-pi/controller/daemon"
+	"github.com/reef-pi/reef-pi/controller/storage"
 )
 
 func resetPassword(db, u, p string) {
-	store, err := utils.NewStore(db)
+	store, err := storage.NewStore(db)
 	if u == "" {
 		fmt.Println("username can not be empty")
 		os.Exit(1)
@@ -22,11 +23,11 @@ func resetPassword(db, u, p string) {
 		os.Exit(1)
 	}
 	defer store.Close()
-	creds := controller.Credentials{
+	creds := daemon.Credentials{
 		User:     u,
 		Password: p,
 	}
-	if err := store.Update(controller.Bucket, "credentials", creds); err != nil {
+	if err := store.Update(daemon.Bucket, "credentials", creds); err != nil {
 		fmt.Println("Failed to save new credential. Error:", err)
 		os.Exit(1)
 	}

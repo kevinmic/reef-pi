@@ -10,6 +10,8 @@ class inlets extends React.Component {
     this.state = {
       inName: '',
       inPin: '',
+      inDriver: 'rpi',
+      driver_name: 'Raspberry Pi',
       inReverse: false,
       add: false
     }
@@ -18,6 +20,7 @@ class inlets extends React.Component {
     this.remove = this.remove.bind(this)
     this.save = this.save.bind(this)
     this.handleNameChange = this.handleNameChange.bind(this)
+    this.handleDriverChange = this.handleDriverChange.bind(this)
     this.handlePinChange = this.handlePinChange.bind(this)
     this.handleReverseChange = this.handleReverseChange.bind(this)
   }
@@ -33,6 +36,12 @@ class inlets extends React.Component {
   }
   componentDidMount () {
     this.props.fetch()
+  }
+  handleDriverChange (e) {
+    this.setState({
+      inDriver: e.target.value,
+      driver_name: this.props.drivers.filter(d => d.id === e.target.value)[0].name
+    })
   }
 
   remove (id) {
@@ -58,7 +67,8 @@ class inlets extends React.Component {
     var payload = {
       name: this.state.inName,
       pin: parseInt(this.state.inPin),
-      reverse: this.state.inReverse
+      reverse: this.state.inReverse,
+      driver: this.state.inDriver
     }
     this.props.create(payload)
     this.add()
@@ -74,6 +84,8 @@ class inlets extends React.Component {
           reverse={i.reverse}
           equipment={i.equipment}
           inlet_id={i.id}
+          driver={i.driver}
+          drivers={this.props.drivers}
           key={i.id}
           remove={this.remove(i.id)}
           update={p => {
@@ -137,6 +149,23 @@ class inlets extends React.Component {
             </div>
           </div>
           <div className='col-12 col-md-2'>
+            <div className='driver-type form-group'>
+              <label className='input-group-addon'>Driver</label>
+              <select
+                name='driver'
+                onChange={this.handleDriverChange}
+                value={this.state.inDriver}>
+                {this.props.drivers.map(item => {
+                  return (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+          </div>
+          <div className='col-12 col-md-2'>
             <div className='form-group'>
               <span className='input-group-addon'>Reverse</span>
               <input
@@ -149,7 +178,13 @@ class inlets extends React.Component {
             </div>
           </div>
           <div className='col-12 col-md-3 text-right'>
-            <input type='button' id='createInlet' value='add' onClick={this.save} className='btn btn-outline-primary col-12 col-md-4' />
+            <input
+              type='button'
+              id='createInlet'
+              value='add'
+              onClick={this.save}
+              className='btn btn-outline-primary col-12 col-md-4'
+            />
           </div>
         </div>
       </div>
@@ -158,7 +193,10 @@ class inlets extends React.Component {
 }
 
 const mapStateToProps = state => {
-  return { inlets: state.inlets }
+  return {
+    inlets: state.inlets,
+    drivers: state.drivers
+  }
 }
 
 const mapDispatchToProps = dispatch => {

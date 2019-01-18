@@ -3,26 +3,35 @@ package connectors
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/reef-pi/reef-pi/controller/utils"
-	"github.com/reef-pi/rpi/i2c"
 	"testing"
+
+	"github.com/reef-pi/reef-pi/controller/drivers"
+
+	"github.com/reef-pi/reef-pi/controller/storage"
+	"github.com/reef-pi/reef-pi/controller/utils"
 )
 
 func TestJacksAPI(t *testing.T) {
-	store, err := utils.TestDB()
+	store, err := storage.TestDB()
 	if err != nil {
 		t.Fatal(err)
 	}
 	tr := utils.NewTestRouter()
-	rpi := NewRPIPWMDriver(100, true)
-	conf := DefaultPCA9685Config
-	conf.DevMode = true
-	pca9685, err := NewPCA9685(i2c.MockBus(), conf)
+
 	if err != nil {
 		t.Error(err)
 	}
+	drvrs := drivers.TestDrivers(store)
+	d1 := drivers.Driver{
+		Name:   "lighting",
+		Type:   "pca9685",
+		Config: []byte(`{"address":64, "frequency":1000}`),
+	}
+	if err := drvrs.Create(d1); err != nil {
+		t.Fatal(err)
+	}
 	j := Jack{Name: "Foo", Pins: []int{0}, Driver: "rpi"}
-	jacks := NewJacks(store, rpi, pca9685)
+	jacks := NewJacks(drvrs, store)
 	if err := jacks.Setup(); err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +43,7 @@ func TestJacksAPI(t *testing.T) {
 	}
 
 	body.Reset()
-	j.Driver = "pca9685"
+	j.Driver = "1"
 	json.NewEncoder(body).Encode(j)
 	if err := tr.Do("POST", "/api/jacks/1", body, nil); err != nil {
 		t.Error(err)
@@ -79,9 +88,6 @@ func TestJacksAPI(t *testing.T) {
 	}
 	if err := tr.Do("GET", "/api/jacks", new(bytes.Buffer), nil); err != nil {
 		t.Error(err)
-	}
-	if err := jacks.DirectControl("bogus", 1, 100); err == nil {
-		t.Error("Expect to fail when driver is not rpi or pca9685")
 	}
 	pinValues := make(map[int]float64)
 	pinValues[0] = 73

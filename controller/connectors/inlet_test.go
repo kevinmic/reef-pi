@@ -3,19 +3,24 @@ package connectors
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/reef-pi/reef-pi/controller/utils"
 	"testing"
+
+	"github.com/reef-pi/reef-pi/controller/drivers"
+	"github.com/reef-pi/reef-pi/controller/storage"
+	"github.com/reef-pi/reef-pi/controller/utils"
 )
 
 func TestInletsAPI(t *testing.T) {
-	store, err := utils.TestDB()
+	store, err := storage.TestDB()
 	if err != nil {
 		t.Fatal(err)
 	}
+	drvrs := drivers.TestDrivers(store)
+
 	tr := utils.NewTestRouter()
-	i := Inlet{Name: "Foo", Pin: 21}
-	inlets := NewInlets(store)
-	inlets.DevMode = true
+	i := Inlet{Name: "Foo", Pin: 21, Driver: "rpi"}
+	inlets := NewInlets(drvrs, store)
+
 	if err := inlets.Setup(); err != nil {
 		t.Fatal(err)
 	}

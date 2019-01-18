@@ -11,7 +11,9 @@ class outlets extends React.Component {
       outName: '',
       outPin: '',
       outReverse: false,
-      add: false
+      add: false,
+      driver: 'rpi',
+      driver_name: 'Raspberry Pi'
     }
     this.list = this.list.bind(this)
     this.add = this.add.bind(this)
@@ -20,8 +22,14 @@ class outlets extends React.Component {
     this.handleNameChange = this.handleNameChange.bind(this)
     this.handlePinChange = this.handlePinChange.bind(this)
     this.handleReverseChange = this.handleReverseChange.bind(this)
+    this.handleDriverChange = this.handleDriverChange.bind(this)
   }
-
+  handleDriverChange (e) {
+    this.setState({
+      driver: e.target.value,
+      driver_name: this.props.drivers.filter(d => d.id === e.target.value)[0].name
+    })
+  }
   handleNameChange (e) {
     this.setState({ outName: e.target.value })
   }
@@ -58,7 +66,8 @@ class outlets extends React.Component {
     var payload = {
       name: this.state.outName,
       pin: parseInt(this.state.outPin),
-      reverse: this.state.outReverse
+      reverse: this.state.outReverse,
+      driver: this.state.driver
     }
     this.props.create(payload)
     this.add()
@@ -76,6 +85,8 @@ class outlets extends React.Component {
           reverse={o.reverse}
           equipment={o.equipment}
           remove={this.remove(o.id)}
+          drivers={this.props.drivers}
+          driver={o.driver}
           update={p => {
             this.props.update(o.id, p)
             this.props.fetch()
@@ -136,6 +147,23 @@ class outlets extends React.Component {
             </div>
           </div>
           <div className='col-12 col-md-2'>
+            <div className='driver-type form-group'>
+              <label className='input-group-addon'>Driver</label>
+              <select
+                name='driver'
+                onChange={this.handleDriverChange}
+                value={this.state.driver}>
+                {this.props.drivers.map(item => {
+                  return (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+          </div>
+          <div className='col-12 col-md-2'>
             <div className='form-group'>
               <span className='input-group-addon'> Reverse </span>
               <input
@@ -163,7 +191,10 @@ class outlets extends React.Component {
 }
 
 const mapStateToProps = state => {
-  return { outlets: state.outlets }
+  return {
+    outlets: state.outlets,
+    drivers: state.drivers
+  }
 }
 
 const mapDispatchToProps = dispatch => {
